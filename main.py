@@ -4,6 +4,7 @@
 from log_helper import logger
 from bs4 import BeautifulSoup as bs
 import requests
+import sqlite3
 
 logger.info('Logger has been started.')
 results = []
@@ -11,13 +12,13 @@ results = []
 
 def print_to_file(list_):
     with open('results.csv', 'a') as f:
-        f.write(str(list_)+'\n')
+        f.write(str(list_) + '\n')
 
 
-def work_the_page(str_, results=None):
+def work_the_page(str_: str, results_: list = None):
     base_url = 'https://books.toscrape.com/'
-    if results is None:
-        results = []
+    # if results_ is None:
+    #     results_ = []
     res = requests.get(str_)
     soup = bs(res.text, 'lxml')
 
@@ -33,11 +34,30 @@ def work_the_page(str_, results=None):
             'link': link
         }
         print_to_file(result)
-        results.append(result)
-    return results
+        results_.append(result)
+    return results_
+
+
+def save_the_books(results_):
+    connection = sqlite3.connect("books.db")
+    c = connection.cursor()
+    c.execute('''
+        CREATE TABLE books
+        (title TEXT, price text, link TEXT)
+    ''')
+    c.executemany('''INSERT INTO books(
+                  title, 
+                  price, 
+                  link) 
+                  VALUES (:title,:price,:link)''',
+                  results_)
+    connection.commit()
+    connection.close()
 
 
 if __name__ == "__main__":
     for page in range(1, 51):
         url = f"https://books.toscrape.com/catalogue/page-{page}.html"
         results = work_the_page(url, results)
+
+    save_the_books(results)
